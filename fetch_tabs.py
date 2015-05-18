@@ -19,15 +19,16 @@ def emptylbl(lbl):
         return lbl
 
     
-def get_url_tabs_tr(url,maindivid):
+def get_url_tabs(url,maindivid):
     u = urllib2.urlopen(url)
     html = u.read()
     soup = BeautifulSoup(html)
     #get all nested tabs inside each main class div
-    div = soup.find('div',{'id':maindivid})
-    rows = div.find_all('tr')
+    tabs = soup.find_all('table')
+    #div = soup.find('div',{'id':maindivid})
+    #rows = div.find_all('tr')
 
-    return rows
+    return tabs#rows
 
 def get_td(row):
     pass
@@ -40,7 +41,7 @@ def save_to_csv(dic):
 
         #use Oracle Db field names
         #fieldnames = [ f for f in dic[min(dic.keys())].keys() ]
-        fieldnames = list(complete_fields)
+        fieldnames = ['ID','Group','No','Title','Image','Download_lbl','Download_lnk']
 
         spamwriter = csv.DictWriter(csvfile, fieldnames=fieldnames,
                                     delimiter='|',
@@ -54,11 +55,12 @@ def save_to_csv(dic):
                 spamwriter.writerow( dic[d] )
             except ValueError:
                 print fieldnames
-                print dic[d]
+                #print dic[d]
                 print "...Missing Fields:"
                 print "add missing fields to possible fields alias"
                 print sys.exc_info()[:]
                 sys.exit()
+
             
 ### ==================================================================================
 
@@ -66,42 +68,53 @@ final_dic = {}
 main_url
 print "url: ",main_url
 maindivid = "content"
-rows = get_url_tabs_tr(main_url,maindivid)
+tabs = get_url_tabs(main_url,maindivid)
 
 ID = 0
-for r in range(1,len(rows)):
-    dic = {}
-    row = rows[r].find_all('td')
-    dic['No'] = row[0].getText()
-    dic['Title'] = row[1].getText()
-    try:
-        dic['Image'] = urljoin( base_url , row[2].find('img')['src'] )
-    except:
-        dic['Image'] = ''
-    try:
-        hrefs = row[1].find_all('a')
-        lbls = []
-        links = []
-        for h in hrefs:
-            lbls.append( emptylbl(delweird(h.getText())) )
-            links.append( urljoin(base_url ,h['href']) )
-        dic['Download_lbl'] = ';'.join(lbls)
-        dic['Download_lnk'] = ';'.join(links)
+for t in tabs:
+    rows = t.find_all('tr')
+    first_row = rows[0].find_all('td')
+    print '|'.join([delweird(r.getText()) for r in first_row])
+    gettab = raw_input('\nGet table? (y/n): ')
+    print '\n\n'
 
-    except:
-        #print row
-        print sys.exc_info()
-        raw_input('Error stop.')
-        sys.exit()
-    final_dic[ID] = dic
-    ID+=1
+    if gettab == 'y':
+        tab_title = raw_input('Table Title: ')
+        for r in range(1,len(rows)):
+            dic = {}
+            row = rows[r].find_all('td')
+            dic['ID'] = ID
+            dic['Group'] = tab_title
+            dic['No'] = row[0].getText()
+            dic['Title'] = delweird(row[1].getText())
+            try:
+                dic['Image'] = urljoin( base_url , row[2].find('img')['src'] )
+            except:
+                dic['Image'] = ''
+            try:
+                hrefs = row[1].find_all('a')
+                lbls = []
+                links = []
+                for h in hrefs:
+                    try:
+                        links.append( urljoin(base_url ,h['href']) )
+                        lbls.append( emptylbl(delweird(h.getText())) )
+                    except KeyError:
+                        pass # <a> without href
+                dic['Download_lbl'] = ';'.join(lbls)
+                dic['Download_lnk'] = ';'.join(links)
 
-
+            except:
+                print row[1].find_all('a')
+                print sys.exc_info()
+                raw_input('Error stop.')
+                sys.exit()
+            final_dic[ID] = dic
+            ID+=1
 
 ##for k in sorted(r.keys()):
 ##    final_dic[k] = r[k]
 ##
-##print "Total records: ",len(final_dic.keys())
-##print "Total Countries: ", len(urls)
+print "Total records: ",len(final_dic.keys())
 ##
-##save_to_csv(final_dic)     
+save_to_csv(final_dic)     
