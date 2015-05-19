@@ -3,10 +3,12 @@ import urllib2
 from bs4 import BeautifulSoup
 from urlparse import urljoin
 import csv
+import urlparse
 
 
 main_url = 'http://eusoils.jrc.ec.europa.eu/ESDB_Archive/eusoils_docs/doc.html'
-base_url = 'http://eusoils.jrc.ec.europa.eu/ESDB_Archive/eusoils_docs/'
+base_url = '/ESDB_Archive/eusoils_docs/'
+website = 'http://eusoils.jrc.ec.europa.eu'
 
 def delweird(obj):
     cleanobj = unicode(obj).encode('utf-8','replace')
@@ -61,7 +63,28 @@ def save_to_csv(dic):
                 print sys.exc_info()[:]
                 sys.exit()
 
-            
+
+def downloaddata(rel_url):
+
+    base = os.getcwd()+os.sep+'download'+os.sep
+    if not os.path.exists(base):
+        os.mkdir(base)
+    rel_fold = os.path.normpath( os.path.dirname(rel_url) )
+    down_path = base+rel_fold
+    if not os.path.exists(down_path):
+        i_rel_fold = rel_fold.split(os.sep)
+        ipath = ''
+        for p in i_rel_fold:
+            ipath += p+os.sep
+            npath = base + ipath
+            if not os.path.exists(npath):
+                os.mkdir(npath)
+    if not os.path.exists(website + rel_url):
+        down_file = urllib2.urlopen(website + rel_url)
+        output = open(base + rel_url,'wb')
+        output.write(down_file.read())
+        output.close()
+
 ### ==================================================================================
 
 final_dic = {}
@@ -76,7 +99,7 @@ for t in tabs:
     first_row = rows[0].find_all('td')
     print '|'.join([delweird(r.getText()) for r in first_row])
     gettab = raw_input('\nGet table? (y/n): ')
-    print '\n\n'
+    print '\n'
 
     if gettab == 'y':
         tab_title = raw_input('Table Title: ')
@@ -97,7 +120,20 @@ for t in tabs:
                 links = []
                 for h in hrefs:
                     try:
-                        links.append( urljoin(base_url ,h['href']) )
+                        lnk = h['href']
+                        if urlparse.urlparse(lnk).netloc: #check absolute url
+                            links.append(lnk)
+                        else:
+                            links.append( urljoin(website + base_url ,lnk) )
+                        try:
+                            print 'Downloading: ', links[-1]
+                            downloaddata( links[-1].replace(website,'') )
+                            print 'Done.'
+                        except:
+                            #print sys.exc_info()
+                            cont = raw_input('External link? skip? (y/n): ')
+                            if not cont == 'y':
+                                sys.exit()
                         lbls.append( emptylbl(delweird(h.getText())) )
                     except KeyError:
                         pass # <a> without href
@@ -111,6 +147,7 @@ for t in tabs:
                 sys.exit()
             final_dic[ID] = dic
             ID+=1
+    print '\n\n'
 
 ##for k in sorted(r.keys()):
 ##    final_dic[k] = r[k]
