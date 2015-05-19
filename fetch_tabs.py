@@ -6,9 +6,15 @@ import csv
 import urlparse
 
 
-main_url = 'http://eusoils.jrc.ec.europa.eu/ESDB_Archive/eusoils_docs/doc.html'
+#main_url = 'http://eusoils.jrc.ec.europa.eu/ESDB_Archive/eusoils_docs/doc.html'
+#main_url = 'http://eusoils.jrc.ec.europa.eu/ESDB_Archive/eusoils_docs/doc_Conf.html'
+#main_url = 'http://eusoils.jrc.ec.europa.eu/ESDB_Archive/eusoils_docs/doc_Poster.html'
+main_url = 'http://eusoils.jrc.ec.europa.eu/ESDB_Archive/eusoils_docs/doc_various.html'
+
 base_url = '/ESDB_Archive/eusoils_docs/'
 website = 'http://eusoils.jrc.ec.europa.eu'
+
+ID = 3000
 
 def delweird(obj):
     cleanobj = unicode(obj).encode('utf-8','replace')
@@ -43,7 +49,7 @@ def save_to_csv(dic):
 
         #use Oracle Db field names
         #fieldnames = [ f for f in dic[min(dic.keys())].keys() ]
-        fieldnames = ['ID','Group','No','Title','Image','Download_lbl','Download_lnk']
+        fieldnames = ['ID','Group','No','Title','Description','Image','Download_lbl','Download_lnk']
 
         spamwriter = csv.DictWriter(csvfile, fieldnames=fieldnames,
                                     delimiter='|',
@@ -93,7 +99,7 @@ print "url: ",main_url
 maindivid = "content"
 tabs = get_url_tabs(main_url,maindivid)
 
-ID = 0
+
 for t in tabs:
     rows = t.find_all('tr')
     first_row = rows[0].find_all('td')
@@ -109,9 +115,16 @@ for t in tabs:
             dic['ID'] = ID
             dic['Group'] = tab_title
             dic['No'] = row[0].getText()
-            dic['Title'] = delweird(row[1].getText())
+            dic['Title'] = delweird(row[1].find('h2').getText())
+            dic['Description'] = delweird(row[1].getText())
             try:
                 dic['Image'] = urljoin( base_url , row[2].find('img')['src'] )
+                try:
+                    downloaddata( dic['Image'] )
+                except:
+                    print 'Imag download Err.'
+                    print sys.exc_info()
+                    pass
             except:
                 dic['Image'] = ''
             try:
